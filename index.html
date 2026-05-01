@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coding Agent Session Viewer</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #e5e5e5;
+    --border-strong: #d0d0d0;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --text-faint: #9a9a9a;
+    --user: #2d6cdf;
+    --user-bg: #eaf1fc;
+    --assistant-bg: #ffffff;
+    --tool: #b45309;
+    --tool-bg: #fef6e7;
+    --thinking: #7a5cd6;
+    --thinking-bg: #f3eeff;
+    --reasoning: #6b6b6b;
+    --system: #9a9a9a;
+    --code-bg: #f4f4f5;
+    --error: #b91c1c;
+    --error-bg: #fef2f2;
+    --success: #15803d;
+    --radius: 6px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --panel: #1a1a1c;
+      --border: #2a2a2d;
+      --border-strong: #3a3a3e;
+      --text: #e8e8e8;
+      --text-muted: #a0a0a0;
+      --text-faint: #6b6b6b;
+      --user: #7ba9ff;
+      --user-bg: #1a2540;
+      --assistant-bg: #1a1a1c;
+      --tool: #fbbf24;
+      --tool-bg: #2a2418;
+      --thinking: #b79af0;
+      --thinking-bg: #24203a;
+      --reasoning: #a0a0a0;
+      --system: #6b6b6b;
+      --code-bg: #101012;
+      --error: #f87171;
+      --error-bg: #2a1515;
+      --success: #4ade80;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .spacer { flex: 1; }
+  header .meta { color: var(--text-muted); font-size: 12px; }
+
+  button, label.btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 5px 11px;
+    border: 1px solid var(--border-strong);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  button:hover, label.btn:hover { background: var(--code-bg); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  input[type="file"] { display: none; }
+
+  #input-section {
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  #input-section.hidden { display: none; }
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--text);
+    resize: vertical;
+  }
+  .input-hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 8px 0 16px;
+  }
+  .input-actions { display: flex; gap: 8px; align-items: center; }
+  .input-error {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--error-bg);
+    color: var(--error);
+    border-radius: var(--radius);
+    font-size: 13px;
+    white-space: pre-wrap;
+    font-family: var(--mono);
+  }
+
+  #output {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  #output.empty { display: none; }
+
+  .event {
+    margin-bottom: 10px;
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .event-head {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 4px 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .event-head .label { color: var(--text); }
+  .event-head .ts { font-family: var(--mono); font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+  .event-head .tag { font-family: var(--mono); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-faint); padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; }
+
+  .bubble {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+  .bubble.user { border-color: var(--user); background: var(--user-bg); }
+  .bubble.user .event-head .label { color: var(--user); }
+  .bubble.assistant { background: var(--assistant-bg); }
+  .bubble.tool { background: var(--tool-bg); border-color: rgba(180, 83, 9, 0.25); }
+  .bubble.tool .event-head .label { color: var(--tool); }
+  .bubble.thinking { background: var(--thinking-bg); border-color: rgba(122, 92, 214, 0.2); }
+  .bubble.thinking .event-head .label { color: var(--thinking); }
+  .bubble.system-note {
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    text-align: center;
+    border-top: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
+    border-radius: 0;
+    margin: 6px 0;
+  }
+  .bubble.error { background: var(--error-bg); border-color: rgba(185, 28, 28, 0.25); }
+
+  .body {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    font-family: var(--sans);
+  }
+  .body.mono { font-family: var(--mono); font-size: 12.5px; }
+
+  .body p { margin: 0 0 0.7em 0; }
+  .body p:last-child { margin-bottom: 0; }
+
+  code.inline {
+    font-family: var(--mono);
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    margin: 8px 0 0 0;
+    padding: 10px 12px;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.4;
+  }
+
+  details { margin-top: 6px; }
+  details summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 3px 0;
+    user-select: none;
+  }
+  details summary:hover { color: var(--text); }
+  details[open] summary { margin-bottom: 4px; }
+
+  .tool-cmd {
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 8px 10px;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .tool-cmd .prompt { color: var(--text-muted); user-select: none; }
+
+  .tool-result {
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .tool-result.is-error { color: var(--error); }
+  .tool-meta { font-size: 11px; color: var(--text-faint); margin-top: 4px; font-family: var(--mono); }
+
+  .divider {
+    margin: 20px 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+  }
+
+  .file-ref {
+    padding: 6px 10px;
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .muted { color: var(--text-muted); }
+
+  .stats {
+    color: var(--text-faint);
+    font-size: 12px;
+    padding: 4px 10px;
+    font-family: var(--mono);
+  }
+
+  .controls-inline {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .controls-inline label { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Session Viewer</h1>
+  <span id="format-tag" class="meta"></span>
+  <span id="count-tag" class="meta"></span>
+  <div class="spacer"></div>
+  <div class="controls-inline" id="filters" style="display: none;">
+    <label><input type="checkbox" id="show-thinking" checked> thinking</label>
+    <label><input type="checkbox" id="show-system" checked> system</label>
+    <label><input type="checkbox" id="show-meta"> meta</label>
+  </div>
+  <button id="new-btn" style="display:none;">New</button>
+</header>
+
+<section id="input-section">
+  <p class="input-hint">
+    Paste JSONL from a <strong>Codex</strong> or <strong>Claude Code</strong> session,
+    or load a <code class="inline">.jsonl</code> file.
+  </p>
+  <textarea id="input" placeholder='{"timestamp":"...","type":"session_meta",...}&#10;{"timestamp":"...","type":"response_item",...}'></textarea>
+  <div class="input-actions" style="margin-top: 12px;">
+    <button id="render-btn">Render</button>
+    <label class="btn" for="file-input">Load file…</label>
+    <input type="file" id="file-input" accept=".jsonl,.json,.txt">
+    <button id="example-btn">Paste example</button>
+    <span class="spacer" style="flex:1;"></span>
+    <span id="error-area" class="muted"></span>
+  </div>
+  <div id="input-error" class="input-error" style="display:none;"></div>
+</section>
+
+<section id="output" class="empty"></section>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (sel) => document.querySelector(sel);
+  const input = $("#input");
+  const output = $("#output");
+  const inputSection = $("#input-section");
+  const inputError = $("#input-error");
+  const formatTag = $("#format-tag");
+  const countTag = $("#count-tag");
+  const filtersEl = $("#filters");
+  const newBtn = $("#new-btn");
+
+  // ---- parsing ----
+
+  function parseJsonl(text) {
+    const lines = text.split("\n");
+    const events = [];
+    const errors = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      try {
+        events.push(JSON.parse(line));
+      } catch (e) {
+        errors.push(`Line ${i + 1}: ${e.message}`);
+      }
+    }
+    return { events, errors };
+  }
+
+  function detectFormat(events) {
+    if (!events.length) return "unknown";
+    // Codex: has payload + type === "session_meta" / "response_item" / "event_msg"
+    // Claude: has uuid + sessionId
+    for (const e of events.slice(0, 10)) {
+      if (e && typeof e === "object") {
+        if (e.payload && e.type && ["session_meta", "response_item", "event_msg", "turn_context"].includes(e.type)) return "codex";
+        if (e.uuid && e.sessionId) return "claude";
+      }
+    }
+    return "unknown";
+  }
+
+  // ---- helpers ----
+
+  function escapeHtml(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return "";
+    try {
+      const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
+      if (isNaN(d)) return "";
+      return d.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+    } catch { return ""; }
+  }
+
+  function el(tag, attrs, ...children) {
+    const e = document.createElement(tag);
+    if (attrs) {
+      for (const k in attrs) {
+        if (k === "class") e.className = attrs[k];
+        else if (k === "text") e.textContent = attrs[k];
+        else if (k === "html") e.innerHTML = attrs[k];
+        else if (k.startsWith("on")) e.addEventListener(k.slice(2), attrs[k]);
+        else if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+      }
+    }
+    for (const c of children) {
+      if (c == null || c === false) continue;
+      if (Array.isArray(c)) c.forEach(x => x && e.appendChild(x));
+      else if (typeof c === "string") e.appendChild(document.createTextNode(c));
+      else e.appendChild(c);
+    }
+    return e;
+  }
+
+  function head(label, ts, ...tags) {
+    const children = [el("span", { class: "label", text: label })];
+    if (ts) children.push(el("span", { class: "ts", text: fmtTime(ts) }));
+    for (const t of tags) {
+      if (t) children.push(el("span", { class: "tag", text: t }));
+    }
+    return el("div", { class: "event-head" }, ...children);
+  }
+
+  function bubble(kind, headEl, ...body) {
+    const b = el("div", { class: `bubble ${kind}` }, headEl, ...body);
+    return el("div", { class: `event event-${kind}` }, b);
+  }
+
+  function systemNote(text) {
+    return el("div", { class: "event" },
+      el("div", { class: "bubble system-note", text }));
+  }
+
+  function prose(text) {
+    // Render simple markdown-ish: keep whitespace, no HTML injection.
+    return el("div", { class: "body", text: text });
+  }
+
+  function collapsibleBlock(summary, text, { open = false, mono = true, maxLines = 0 } = {}) {
+    const d = el("details", open ? { open: "" } : {});
+    d.appendChild(el("summary", { text: summary }));
+    const pre = el("pre", { class: mono ? "" : "body", text: text || "" });
+    d.appendChild(pre);
+    return d;
+  }
+
+  function shouldCollapse(text, threshold = 500) {
+    if (!text) return false;
+    if (text.length > threshold) return true;
+    if ((text.match(/\n/g) || []).length > 8) return true;
+    return false;
+  }
+
+  // ---- Codex format ----
+
+  function renderCodex(events) {
+    const frag = document.createDocumentFragment();
+    const toolCalls = new Map(); // call_id -> { argsText, name }
+    const seenPatchIds = new Set();
+    const seenExecIds = new Set();
+    let currentTurn = null;
+    let turnStarted = 0;
+
+    for (const e of events) {
+      if (!e || typeof e !== "object") continue;
+      const ts = e.timestamp;
+
+      if (e.type === "session_meta") {
+        const p = e.payload || {};
+        frag.appendChild(renderSessionMeta(p, ts));
+        continue;
+      }
+
+      if (e.type === "turn_context") {
+        continue; // skip
+      }
+
+      if (e.type === "event_msg") {
+        const p = e.payload || {};
+        if (p.type === "task_started") {
+          turnStarted = p.started_at || null;
+          if (currentTurn !== p.turn_id) {
+            currentTurn = p.turn_id;
+            frag.appendChild(systemNote(`▼ Turn started${p.turn_id ? ` · ${short(p.turn_id)}` : ""}`));
+          }
+          continue;
+        }
+        if (p.type === "task_complete") {
+          const dur = p.duration_ms ? ` · ${(p.duration_ms / 1000).toFixed(1)}s` : "";
+          frag.appendChild(systemNote(`▲ Turn complete${dur}`));
+          continue;
+        }
+        if (p.type === "user_message") {
+          frag.appendChild(renderCodexUser(p.message, ts));
+          continue;
+        }
+        if (p.type === "agent_message") {
+          // Prefer response_item.message; skip here (response_item tends to follow with same content).
+          continue;
+        }
+        if (p.type === "token_count") {
+          frag.appendChild(renderTokenCount(p.info));
+          continue;
+        }
+        if (p.type === "exec_command_end") {
+          if (p.call_id) seenExecIds.add(p.call_id);
+          frag.appendChild(renderExec(p, ts));
+          continue;
+        }
+        if (p.type === "patch_apply_end") {
+          if (p.call_id) seenPatchIds.add(p.call_id);
+          frag.appendChild(renderPatchApply(p, ts));
+          continue;
+        }
+        if (p.type === "error") {
+          frag.appendChild(bubble("error", head("Error", ts), prose(p.message || JSON.stringify(p))));
+          continue;
+        }
+        // Other event_msg subtypes: ignore silently or tag as system
+        if (classify.showMeta) frag.appendChild(systemNote(`event_msg: ${p.type || "?"}`));
+        continue;
+      }
+
+      if (e.type === "response_item") {
+        const p = e.payload || {};
+        if (p.type === "message") {
+          if (p.role === "user") {
+            // Skip shell-command "user" messages that duplicate exec_command_end
+            const txt = extractTextFromContent(p.content);
+            if (/^<user_shell_command>/.test(txt) || /^<environment_context>/.test(txt)) {
+              if (classify.showMeta) {
+                frag.appendChild(renderEnvOrShell(txt, ts));
+              }
+              continue;
+            }
+            frag.appendChild(renderCodexUser(txt, ts));
+          } else if (p.role === "assistant") {
+            frag.appendChild(renderAssistantText(extractTextFromContent(p.content), ts, p.phase));
+          } else if (p.role === "developer") {
+            if (classify.showSystem) {
+              const txt = extractTextFromContent(p.content);
+              frag.appendChild(renderDeveloper(txt, ts));
+            }
+          }
+          continue;
+        }
+        if (p.type === "reasoning") {
+          if (classify.showThinking) frag.appendChild(renderCodexReasoning(p, ts));
+          continue;
+        }
+        if (p.type === "function_call") {
+          toolCalls.set(p.call_id, { name: p.name, arguments: p.arguments, ts });
+          continue;
+        }
+        if (p.type === "function_call_output") {
+          // If exec_command_end already rendered, skip.
+          if (seenExecIds.has(p.call_id)) continue;
+          const call = toolCalls.get(p.call_id);
+          frag.appendChild(renderFunctionCall(call, p, ts));
+          continue;
+        }
+        if (p.type === "custom_tool_call") {
+          toolCalls.set(p.call_id, { name: p.name, input: p.input, ts, custom: true });
+          continue;
+        }
+        if (p.type === "custom_tool_call_output") {
+          if (seenPatchIds.has(p.call_id)) continue;
+          const call = toolCalls.get(p.call_id);
+          frag.appendChild(renderCustomToolCall(call, p, ts));
+          continue;
+        }
+        continue;
+      }
+    }
+
+    return frag;
+  }
+
+  function short(s) { return s ? String(s).slice(0, 8) : ""; }
+
+  function renderSessionMeta(p, ts) {
+    const lines = [];
+    if (p.originator) lines.push(`originator: ${p.originator}`);
+    if (p.cli_version) lines.push(`cli_version: ${p.cli_version}`);
+    if (p.model_provider) lines.push(`provider: ${p.model_provider}`);
+    if (p.cwd) lines.push(`cwd: ${p.cwd}`);
+    if (p.id) lines.push(`session_id: ${p.id}`);
+    const detail = collapsibleBlock("base_instructions", (p.base_instructions && p.base_instructions.text) || "", { mono: false });
+    const body = el("div", {},
+      el("div", { class: "body mono", text: lines.join("\n") }),
+      (p.base_instructions && p.base_instructions.text) ? detail : null
+    );
+    return bubble("system-meta",
+      head("Session", ts || p.timestamp, "codex"),
+      body
+    );
+  }
+
+  function renderCodexUser(text, ts) {
+    if (typeof text !== "string") text = extractTextFromContent(text);
+    return bubble("user", head("User", ts), prose(text || "(empty)"));
+  }
+
+  function renderEnvOrShell(text, ts) {
+    return bubble("system-meta", head("Context", ts),
+      collapsibleBlock("show", text, { mono: true }));
+  }
+
+  function renderDeveloper(text, ts) {
+    return bubble("system-meta", head("Developer", ts, "system prompt"),
+      collapsibleBlock("show", text, { mono: false }));
+  }
+
+  function renderAssistantText(text, ts, phase) {
+    const tag = phase === "final_answer" ? "final" : phase;
+    return bubble("assistant", head("Assistant", ts, tag),
+      prose(text || "(empty)"));
+  }
+
+  function renderCodexReasoning(p, ts) {
+    const summary = Array.isArray(p.summary) && p.summary.length
+      ? p.summary.map(s => typeof s === "string" ? s : (s.text || JSON.stringify(s))).join("\n\n")
+      : null;
+    const body = summary
+      ? prose(summary)
+      : el("div", { class: "muted", text: "(encrypted reasoning)" });
+    return bubble("thinking", head("Thinking", ts, "reasoning"), body);
+  }
+
+  function renderTokenCount(info) {
+    if (!classify.showMeta) return document.createDocumentFragment();
+    if (!info || !info.last_token_usage) return document.createDocumentFragment();
+    const u = info.last_token_usage;
+    const txt = `tokens: in=${u.input_tokens} cached=${u.cached_input_tokens} out=${u.output_tokens} reasoning=${u.reasoning_output_tokens}`;
+    return el("div", { class: "stats", text: txt });
+  }
+
+  function renderExec(p, ts) {
+    const cmd = Array.isArray(p.command)
+      ? p.command.map(c => /[\s"'$`\\]/.test(c) ? JSON.stringify(c) : c).join(" ")
+      : (p.parsed_cmd && p.parsed_cmd[0] && p.parsed_cmd[0].cmd) || JSON.stringify(p.command || "");
+    const out = p.aggregated_output || [p.stdout, p.stderr].filter(Boolean).join("\n");
+    const ok = p.exit_code === 0;
+    const statusTag = ok ? "ok" : `exit ${p.exit_code}`;
+    const bodyChildren = [
+      el("div", { class: "tool-cmd" },
+        el("span", { class: "prompt", text: "$ " }),
+        document.createTextNode(cmd)
+      ),
+    ];
+    if (out) {
+      const isLong = shouldCollapse(out);
+      if (isLong) {
+        const d = el("details", {});
+        d.appendChild(el("summary", { text: `output (${out.length} chars)` }));
+        d.appendChild(el("div", { class: `tool-result${ok ? "" : " is-error"}`, text: out }));
+        bodyChildren.push(d);
+      } else {
+        bodyChildren.push(el("div", { class: `tool-result${ok ? "" : " is-error"}`, text: out }));
+      }
+    }
+    if (p.duration && p.duration.secs !== undefined) {
+      const dur = p.duration.secs + (p.duration.nanos || 0) / 1e9;
+      bodyChildren.push(el("div", { class: "tool-meta", text: `${dur.toFixed(2)}s · cwd=${p.cwd || ""}` }));
+    }
+    return bubble("tool", head("Shell", ts, statusTag), ...bodyChildren);
+  }
+
+  function renderPatchApply(p, ts) {
+    const changes = p.changes || {};
+    const summary = Object.entries(changes).map(([path, ch]) => {
+      const op = ch.type === "add" ? "add" : ch.type;
+      return `${op}  ${path}`;
+    }).join("\n") || (p.stdout || "");
+    const children = [el("div", { class: "tool-cmd", text: summary || "(no changes)" })];
+    if (p.stdout) {
+      children.push(el("div", { class: "tool-meta", text: p.stdout.trim() }));
+    }
+    return bubble("tool", head("Patch", ts, p.success ? "applied" : "failed"), ...children);
+  }
+
+  function renderFunctionCall(call, outp, ts) {
+    const name = call ? call.name : "tool";
+    let argsStr = "";
+    if (call && call.arguments) {
+      try {
+        argsStr = JSON.stringify(JSON.parse(call.arguments), null, 2);
+      } catch { argsStr = call.arguments; }
+    }
+    const children = [];
+    if (argsStr) children.push(el("pre", { text: argsStr }));
+    const out = outp.output || "";
+    if (out) {
+      if (shouldCollapse(out)) {
+        const d = el("details", {});
+        d.appendChild(el("summary", { text: `output (${out.length} chars)` }));
+        d.appendChild(el("div", { class: "tool-result", text: out }));
+        children.push(d);
+      } else {
+        children.push(el("div", { class: "tool-result", text: out }));
+      }
+    }
+    return bubble("tool", head(name, ts, "function_call"), ...children);
+  }
+
+  function renderCustomToolCall(call, outp, ts) {
+    const name = (call && call.name) || "tool";
+    const input = call && call.input;
+    const children = [];
+    if (input) {
+      if (shouldCollapse(input)) {
+        const d = el("details", { open: "" });
+        d.appendChild(el("summary", { text: `input (${input.length} chars)` }));
+        d.appendChild(el("pre", { text: input }));
+        children.push(d);
+      } else {
+        children.push(el("pre", { text: input }));
+      }
+    }
+    let outTxt = "";
+    try {
+      const parsed = JSON.parse(outp.output);
+      outTxt = parsed.output || outp.output;
+    } catch { outTxt = outp.output || ""; }
+    if (outTxt) {
+      children.push(el("div", { class: "tool-result", text: outTxt.trim() }));
+    }
+    return bubble("tool", head(name, ts, "custom_tool"), ...children);
+  }
+
+  function extractTextFromContent(content) {
+    if (content == null) return "";
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return JSON.stringify(content);
+    return content.map(c => {
+      if (typeof c === "string") return c;
+      if (c && (c.type === "input_text" || c.type === "output_text" || c.type === "text")) return c.text || "";
+      if (c && c.type === "image") return "[image]";
+      return "";
+    }).join("\n");
+  }
+
+  // ---- Claude Code format ----
+
+  function renderClaude(events) {
+    const frag = document.createDocumentFragment();
+    const toolUses = new Map(); // id -> { name, input, ts }
+    let firstSession = true;
+
+    for (const e of events) {
+      if (!e || typeof e !== "object") continue;
+      const ts = e.timestamp;
+
+      if (e.type === "file-history-snapshot" || e.type === "last-prompt" || e.type === "permission-mode") {
+        if (classify.showMeta) {
+          let label = e.type;
+          if (e.type === "permission-mode") label = `permission: ${e.permissionMode}`;
+          frag.appendChild(systemNote(label));
+        }
+        continue;
+      }
+
+      if (e.type === "system") {
+        if (e.subtype === "compact_boundary") {
+          const pre = e.compactMetadata ? ` (${e.compactMetadata.preTokens || "?"} → ${e.compactMetadata.postTokens || "?"} tokens)` : "";
+          frag.appendChild(systemNote(`━━━ compact boundary${pre} ━━━`));
+          continue;
+        }
+        if (classify.showSystem) {
+          if (e.subtype === "turn_duration") {
+            frag.appendChild(el("div", { class: "stats", text: `turn duration: ${(e.durationMs / 1000).toFixed(1)}s · ${e.messageCount} messages` }));
+          } else if (e.subtype === "away_summary") {
+            frag.appendChild(bubble("system-meta", head("Away summary", ts), prose(e.content || "")));
+          } else {
+            frag.appendChild(systemNote(`${e.subtype || "system"}`));
+          }
+        }
+        continue;
+      }
+
+      if (e.type === "user") {
+        const msg = e.message;
+        if (!msg) continue;
+        const content = msg.content;
+        // Tool result (array with tool_result)
+        if (Array.isArray(content)) {
+          for (const c of content) {
+            if (c && c.type === "tool_result") {
+              const tu = toolUses.get(c.tool_use_id);
+              frag.appendChild(renderClaudeToolResult(tu, c, ts));
+            } else if (c && c.type === "text") {
+              // Special slash commands / system injections
+              const t = c.text || "";
+              if (/^\[Request interrupted by user\]$/.test(t)) {
+                frag.appendChild(systemNote("⟲ request interrupted by user"));
+              } else {
+                frag.appendChild(renderClaudeUserText(t, ts, e));
+              }
+            }
+          }
+          continue;
+        }
+        // Plain string content
+        const text = typeof content === "string" ? content : "";
+        if (!text) continue;
+        if (e.isMeta) {
+          if (classify.showMeta) frag.appendChild(systemNote(text.slice(0, 160)));
+          continue;
+        }
+        if (e.isCompactSummary) {
+          if (classify.showMeta) {
+            frag.appendChild(bubble("system-meta", head("Compact summary", ts), collapsibleBlock("show", text, { mono: false })));
+          }
+          continue;
+        }
+        frag.appendChild(renderClaudeUserText(text, ts, e));
+        continue;
+      }
+
+      if (e.type === "assistant") {
+        const msg = e.message;
+        if (!msg) continue;
+        const content = msg.content;
+        if (!Array.isArray(content)) continue;
+        for (const c of content) {
+          if (!c || typeof c !== "object") continue;
+          if (c.type === "text") {
+            frag.appendChild(renderAssistantText(c.text || "", ts));
+          } else if (c.type === "thinking") {
+            if (classify.showThinking) {
+              const txt = c.thinking || "(encrypted thinking)";
+              frag.appendChild(bubble("thinking", head("Thinking", ts, "reasoning"),
+                txt === "" || txt === "(encrypted thinking)"
+                  ? el("div", { class: "muted", text: "(encrypted thinking)" })
+                  : prose(txt)));
+            }
+          } else if (c.type === "tool_use") {
+            toolUses.set(c.id, { name: c.name, input: c.input, ts });
+            // Render immediately; output will follow.
+            frag.appendChild(renderClaudeToolUse(c, ts));
+          }
+        }
+        continue;
+      }
+
+      if (e.type === "attachment") {
+        const att = e.attachment;
+        if (!att) continue;
+        if (att.type === "file") {
+          const f = att.content && att.content.file;
+          const title = att.displayPath || (f && f.filePath) || "file";
+          const content = (f && f.content) || "";
+          const lines = (content.match(/\n/g) || []).length;
+          frag.appendChild(el("div", { class: "event" },
+            el("div", { class: "bubble" },
+              head("Attached file", ts, title),
+              collapsibleBlock(`${lines} lines`, content, { mono: true })
+            )));
+          continue;
+        }
+        if (att.type === "deferred_tools_delta") {
+          if (classify.showMeta) {
+            frag.appendChild(systemNote(`tools available: ${(att.addedNames || []).join(", ")}`));
+          }
+          continue;
+        }
+        if (att.type === "skill_listing") {
+          if (classify.showMeta) {
+            frag.appendChild(el("div", { class: "event" },
+              el("div", { class: "bubble" },
+                head("Skills", ts, `${att.skillCount || "?"} available`),
+                collapsibleBlock("show", att.content || "", { mono: false })
+              )));
+          }
+          continue;
+        }
+        if (att.type === "opened_file_in_ide") {
+          if (classify.showMeta) frag.appendChild(systemNote(`opened in IDE: ${att.filename}`));
+          continue;
+        }
+        if (att.type === "diagnostics") {
+          const items = (att.files || []).flatMap(f =>
+            (f.diagnostics || []).map(d => `${f.uri.replace(/^file:\/\//, "")}:${d.range.start.line + 1}  [${d.severity}] ${d.message}`)
+          );
+          if (items.length && classify.showSystem) {
+            frag.appendChild(bubble("system-meta", head("Diagnostics", ts), el("div", { class: "body mono", text: items.join("\n") })));
+          }
+          continue;
+        }
+        if (att.type === "task_reminder") {
+          continue; // always skip
+        }
+        if (classify.showMeta) {
+          frag.appendChild(systemNote(`attachment: ${att.type}`));
+        }
+        continue;
+      }
+    }
+
+    return frag;
+  }
+
+  function renderClaudeUserText(text, ts, event) {
+    // Detect bash-input / bash-stdout wrappers commonly seen in claude code transcripts.
+    const cmdMatch = text.match(/^<bash-input>([\s\S]*)<\/bash-input>$/);
+    if (cmdMatch) {
+      return bubble("user", head("User bash", ts),
+        el("div", { class: "tool-cmd" },
+          el("span", { class: "prompt", text: "$ " }),
+          document.createTextNode(cmdMatch[1])
+        ));
+    }
+    const outMatch = text.match(/^<bash-stdout>([\s\S]*?)<\/bash-stdout>(?:<bash-stderr>([\s\S]*?)<\/bash-stderr>)?$/);
+    if (outMatch) {
+      const stdout = outMatch[1];
+      const stderr = outMatch[2] || "";
+      return bubble("tool", head("Bash output", ts),
+        stdout && el("div", { class: "tool-result", text: stdout }),
+        stderr && el("div", { class: "tool-result is-error", text: stderr }),
+      );
+    }
+    // Detect slash commands
+    const cmdEl = text.match(/<command-name>([^<]+)<\/command-name>/);
+    if (cmdEl) {
+      const argsM = text.match(/<command-args>([\s\S]*?)<\/command-args>/);
+      const outM = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/);
+      const children = [
+        el("div", { class: "tool-cmd" },
+          el("span", { class: "prompt", text: "/" }),
+          document.createTextNode(cmdEl[1] + (argsM && argsM[1] ? " " + argsM[1] : ""))
+        ),
+      ];
+      if (outM && outM[1]) children.push(el("div", { class: "tool-result", text: outM[1] }));
+      return bubble("user", head("Slash command", ts), ...children);
+    }
+    // Caveat messages from local commands
+    if (/^<local-command-caveat>/.test(text)) {
+      if (classify.showMeta) {
+        return systemNote(text.replace(/<\/?local-command-caveat>/g, "").slice(0, 140) + "…");
+      }
+      return document.createDocumentFragment();
+    }
+    return bubble("user", head("User", ts), prose(text));
+  }
+
+  function renderClaudeToolUse(c, ts) {
+    const name = c.name;
+    const input = c.input || {};
+    // Bash-specific rendering: show the command line.
+    if (name === "Bash") {
+      const cmd = input.command || "";
+      const desc = input.description || "";
+      return bubble("tool", head("Bash", ts, desc),
+        el("div", { class: "tool-cmd" },
+          el("span", { class: "prompt", text: "$ " }),
+          document.createTextNode(cmd)
+        ));
+    }
+    if (name === "Read") {
+      return bubble("tool", head("Read", ts, input.file_path || ""));
+    }
+    if (name === "Edit") {
+      const oldS = input.old_string || "";
+      const newS = input.new_string || "";
+      return bubble("tool", head("Edit", ts, input.file_path || ""),
+        oldS && collapsibleBlock(`- old (${oldS.length})`, oldS, { mono: true }),
+        newS && collapsibleBlock(`+ new (${newS.length})`, newS, { mono: true, open: true })
+      );
+    }
+    if (name === "Write") {
+      const content = input.content || "";
+      return bubble("tool", head("Write", ts, input.file_path || ""),
+        collapsibleBlock(`content (${content.length} chars)`, content, { mono: true })
+      );
+    }
+    if (name === "Agent") {
+      return bubble("tool", head("Agent", ts, input.subagent_type || input.description || ""),
+        collapsibleBlock("prompt", input.prompt || "", { mono: false })
+      );
+    }
+    // Generic
+    const str = JSON.stringify(input, null, 2);
+    return bubble("tool", head(name || "tool", ts, "tool_use"),
+      shouldCollapse(str)
+        ? collapsibleBlock(`input (${str.length})`, str)
+        : el("pre", { text: str })
+    );
+  }
+
+  function renderClaudeToolResult(tu, c, ts) {
+    const name = tu ? tu.name : "tool";
+    let text = "";
+    if (typeof c.content === "string") text = c.content;
+    else if (Array.isArray(c.content)) text = c.content.map(x => x.text || "").join("\n");
+    else text = JSON.stringify(c.content || "");
+
+    const isErr = !!c.is_error;
+    // For Read results, we often don't need to re-show the file content (already paged).
+    if (name === "Read" && !isErr) {
+      const lines = (text.match(/\n/g) || []).length;
+      return bubble("tool", head("Read", ts, `${lines} lines read`),
+        collapsibleBlock("show", text, { mono: true }));
+    }
+    if (name === "Bash" || name === "Write" || name === "Edit" || !text) {
+      if (!text) return document.createDocumentFragment();
+      if (shouldCollapse(text)) {
+        return el("div", { class: "event" },
+          el("div", { class: `bubble tool` },
+            head(name || "tool", ts, isErr ? "error" : "result"),
+            collapsibleBlock(`output (${text.length} chars)`, text)
+          ));
+      }
+      return bubble("tool", head(name || "tool", ts, isErr ? "error" : "result"),
+        el("div", { class: `tool-result${isErr ? " is-error" : ""}`, text: text }));
+    }
+    if (shouldCollapse(text)) {
+      return el("div", { class: "event" },
+        el("div", { class: "bubble tool" },
+          head(name || "tool", ts, isErr ? "error" : "result"),
+          collapsibleBlock(`output (${text.length} chars)`, text)
+        ));
+    }
+    return bubble("tool", head(name || "tool", ts, isErr ? "error" : "result"),
+      el("div", { class: `tool-result${isErr ? " is-error" : ""}`, text: text }));
+  }
+
+  // ---- filters ----
+
+  const classify = {
+    showThinking: true,
+    showSystem: true,
+    showMeta: false,
+  };
+
+  // ---- main ----
+
+  let lastEvents = null;
+  let lastFormat = null;
+
+  function render() {
+    inputError.style.display = "none";
+    const raw = input.value;
+    if (!raw.trim()) {
+      showError("Paste or load some JSONL first.");
+      return;
+    }
+    const { events, errors } = parseJsonl(raw);
+    if (!events.length) {
+      showError(errors.length ? errors.slice(0, 5).join("\n") : "No JSON lines found.");
+      return;
+    }
+    const fmt = detectFormat(events);
+    if (fmt === "unknown") {
+      showError("Could not detect format. Expected Codex session.jsonl or Claude Code projects/*.jsonl format.");
+      return;
+    }
+    lastEvents = events;
+    lastFormat = fmt;
+    actuallyRender();
+  }
+
+  function actuallyRender() {
+    output.innerHTML = "";
+    const frag = lastFormat === "codex" ? renderCodex(lastEvents) : renderClaude(lastEvents);
+    output.appendChild(frag);
+    output.classList.remove("empty");
+    inputSection.classList.add("hidden");
+    newBtn.style.display = "";
+    filtersEl.style.display = "";
+    formatTag.textContent = lastFormat;
+    countTag.textContent = `${lastEvents.length} events`;
+    window.scrollTo(0, 0);
+  }
+
+  function showError(msg) {
+    inputError.textContent = msg;
+    inputError.style.display = "block";
+  }
+
+  function reset() {
+    inputSection.classList.remove("hidden");
+    output.classList.add("empty");
+    output.innerHTML = "";
+    newBtn.style.display = "none";
+    filtersEl.style.display = "none";
+    formatTag.textContent = "";
+    countTag.textContent = "";
+    input.focus();
+  }
+
+  // ---- events ----
+
+  $("#render-btn").addEventListener("click", render);
+  newBtn.addEventListener("click", reset);
+
+  $("#file-input").addEventListener("change", async (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const text = await f.text();
+    input.value = text;
+    render();
+    ev.target.value = "";
+  });
+
+  $("#example-btn").addEventListener("click", () => {
+    input.value = EXAMPLE;
+    render();
+  });
+
+  for (const id of ["show-thinking", "show-system", "show-meta"]) {
+    const cb = document.getElementById(id);
+    cb.addEventListener("change", () => {
+      classify.showThinking = $("#show-thinking").checked;
+      classify.showSystem = $("#show-system").checked;
+      classify.showMeta = $("#show-meta").checked;
+      if (lastEvents) actuallyRender();
+    });
+  }
+
+  // Drag-drop
+  document.addEventListener("dragover", (e) => { if (!inputSection.classList.contains("hidden")) e.preventDefault(); });
+  document.addEventListener("drop", async (e) => {
+    if (inputSection.classList.contains("hidden")) return;
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    e.preventDefault();
+    input.value = await f.text();
+    render();
+  });
+
+  // Cmd/Ctrl+Enter to render
+  input.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      render();
+    }
+  });
+
+  // Small example inline (shortened Codex + Claude mix)
+  const EXAMPLE = [
+    JSON.stringify({ timestamp: "2026-04-29T18:16:36.478Z", type: "session_meta", payload: { id: "019dda74-abc", cwd: "/tmp/demo", originator: "codex-tui", cli_version: "0.125.0", model_provider: "openai" } }),
+    JSON.stringify({ timestamp: "2026-04-29T18:19:21.966Z", type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Summarize the repo please." }] } }),
+    JSON.stringify({ timestamp: "2026-04-29T18:19:28.6Z", type: "response_item", payload: { type: "reasoning", summary: [{ text: "Check README, then list files." }] } }),
+    JSON.stringify({ timestamp: "2026-04-29T18:19:28.7Z", type: "response_item", payload: { type: "function_call", name: "exec_command", arguments: "{\"cmd\":\"ls\"}", call_id: "c1" } }),
+    JSON.stringify({ timestamp: "2026-04-29T18:19:28.8Z", type: "event_msg", payload: { type: "exec_command_end", call_id: "c1", command: ["/bin/zsh", "-lc", "ls"], parsed_cmd: [{ type: "list_files", cmd: "ls" }], aggregated_output: "README.md\npyproject.toml\nsrc\n", exit_code: 0, duration: { secs: 0, nanos: 12345 }, cwd: "/tmp/demo" } }),
+    JSON.stringify({ timestamp: "2026-04-29T18:19:31Z", type: "response_item", payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "The repo has a README, a pyproject.toml, and a `src/` directory. Want me to summarize the README?" }], phase: "final_answer" } }),
+  ].join("\n");
+
+})();
+</script>
+</body>
+</html>
