@@ -4,124 +4,210 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coding Agent Session Viewer</title>
+<meta name="description" content="Paste or upload a JSONL transcript from Codex or Claude Code and read it like a conversation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #fafafa;
+    /* brand palette */
+    --dark: #141413;
+    --light: #faf9f5;
+    --mid-gray: #b0aea5;
+    --light-gray: #e8e6dc;
+    --orange: #d97757;
+    --blue: #6a9bcc;
+    --green: #788c5d;
+
+    /* semantic tokens */
+    --bg: var(--light);
     --panel: #ffffff;
-    --border: #e5e5e5;
-    --border-strong: #d0d0d0;
-    --text: #1a1a1a;
-    --text-muted: #6b6b6b;
-    --text-faint: #9a9a9a;
-    --user: #2d6cdf;
-    --user-bg: #eaf1fc;
-    --assistant-bg: #ffffff;
-    --tool: #b45309;
-    --tool-bg: #fef6e7;
-    --thinking: #7a5cd6;
-    --thinking-bg: #f3eeff;
-    --reasoning: #6b6b6b;
-    --system: #9a9a9a;
-    --code-bg: #f4f4f5;
-    --error: #b91c1c;
-    --error-bg: #fef2f2;
-    --success: #15803d;
-    --radius: 6px;
+    --border: var(--light-gray);
+    --border-strong: var(--mid-gray);
+    --text: var(--dark);
+    --text-muted: #6c6a63;
+    --text-faint: var(--mid-gray);
+
+    --user: var(--blue);
+    --user-bg: #eef3f9;
+    --tool: var(--orange);
+    --tool-bg: #fbefe8;
+    --thinking: var(--green);
+    --thinking-bg: #eff2e8;
+
+    --code-bg: #f2f1ea;
+    --error: #b2513b;
+    --error-bg: #f7e4dc;
+
+    --radius: 8px;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --sans: "Poppins", Arial, sans-serif;
+    --serif: "Lora", Georgia, serif;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0f0f10;
-      --panel: #1a1a1c;
-      --border: #2a2a2d;
-      --border-strong: #3a3a3e;
-      --text: #e8e8e8;
-      --text-muted: #a0a0a0;
-      --text-faint: #6b6b6b;
-      --user: #7ba9ff;
-      --user-bg: #1a2540;
-      --assistant-bg: #1a1a1c;
-      --tool: #fbbf24;
-      --tool-bg: #2a2418;
-      --thinking: #b79af0;
-      --thinking-bg: #24203a;
-      --reasoning: #a0a0a0;
-      --system: #6b6b6b;
-      --code-bg: #101012;
-      --error: #f87171;
-      --error-bg: #2a1515;
-      --success: #4ade80;
+      --bg: var(--dark);
+      --panel: #1d1c1b;
+      --border: #2b2a28;
+      --border-strong: #3b3a37;
+      --text: var(--light);
+      --text-muted: #b0aea5;
+      --text-faint: #7a7972;
+      --user-bg: #1b2633;
+      --tool-bg: #2e1f17;
+      --thinking-bg: #1e2418;
+      --code-bg: #111110;
+      --error-bg: #2e1b14;
     }
   }
 
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
-    font-family: var(--sans);
+    font-family: var(--serif);
     background: var(--bg);
     color: var(--text);
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
   }
 
-  header {
+  h1, h2, h3, h4, h5, h6,
+  .heading { font-family: var(--sans); font-weight: 600; letter-spacing: -0.01em; }
+
+  a { color: var(--orange); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---- Header ---- */
+  header.site {
     background: var(--panel);
     border-bottom: 1px solid var(--border);
-    padding: 10px 20px;
+    padding: 12px 22px;
     display: flex;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
     position: sticky;
     top: 0;
     z-index: 10;
   }
-  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
-  header .spacer { flex: 1; }
-  header .meta { color: var(--text-muted); font-size: 12px; }
+  header.site .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--sans); font-weight: 600; font-size: 16px;
+    color: var(--text);
+  }
+  header.site .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--orange);
+    box-shadow: -4px 0 0 var(--blue), -8px 0 0 var(--green);
+    margin-left: 8px;
+  }
+  header.site .spacer { flex: 1; }
+  header.site .meta { color: var(--text-muted); font-size: 12px; font-family: var(--mono); }
+  header.site nav { display: flex; gap: 6px; align-items: center; }
+  header.site nav a.navlink {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 5px 10px; border-radius: var(--radius);
+    color: var(--text-muted); cursor: pointer;
+  }
+  header.site nav a.navlink:hover { color: var(--text); text-decoration: none; background: var(--code-bg); }
 
+  /* ---- Buttons ---- */
   button, label.btn {
     font-family: var(--sans);
-    font-size: 13px;
-    padding: 5px 11px;
+    font-size: 13px; font-weight: 500;
+    padding: 7px 14px;
     border: 1px solid var(--border-strong);
     background: var(--panel);
     color: var(--text);
     border-radius: var(--radius);
     cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
   button:hover, label.btn:hover { background: var(--code-bg); }
+  button.primary, label.btn.primary {
+    background: var(--orange); border-color: var(--orange); color: #fff;
+  }
+  button.primary:hover, label.btn.primary:hover { background: #c86648; border-color: #c86648; color: #fff; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   input[type="file"] { display: none; }
 
+  /* ---- Input section ---- */
+  main { flex: 1; }
   #input-section {
-    padding: 20px;
-    max-width: 900px;
+    padding: 28px 20px 40px;
+    max-width: 920px;
     margin: 0 auto;
   }
   #input-section.hidden { display: none; }
-  textarea {
-    width: 100%;
-    min-height: 220px;
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 12px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius);
+  #input-section h2 {
+    margin: 0 0 6px 0; font-size: 28px; font-weight: 600;
+  }
+  #input-section .lede {
+    font-family: var(--serif);
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0 0 22px 0;
+    max-width: 62ch;
+  }
+
+  .dropzone {
+    position: relative;
+    border: 2px dashed var(--border-strong);
+    border-radius: calc(var(--radius) + 2px);
     background: var(--panel);
+    padding: 2px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone.dragover {
+    border-color: var(--orange);
+    background: var(--tool-bg);
+  }
+  .dropzone.dragover::after {
+    content: "Drop the JSONL file";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--sans); font-weight: 600; color: var(--orange);
+    pointer-events: none;
+    background: rgba(250, 249, 245, 0.85);
+    border-radius: var(--radius);
+  }
+  textarea#input {
+    display: block;
+    width: 100%;
+    min-height: 240px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
     color: var(--text);
     resize: vertical;
+    outline: none;
   }
-  .input-hint {
+
+  .input-actions {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 14px;
+  }
+  .input-actions .spacer { flex: 1; }
+  .hint-row {
+    margin-top: 12px;
     color: var(--text-muted);
     font-size: 13px;
-    margin: 8px 0 16px;
   }
-  .input-actions { display: flex; gap: 8px; align-items: center; }
+  .hint-row kbd {
+    font-family: var(--mono); font-size: 11px;
+    padding: 1px 6px; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 4px;
+  }
   .input-error {
-    margin-top: 12px;
-    padding: 10px 12px;
+    margin-top: 14px;
+    padding: 10px 14px;
     background: var(--error-bg);
     color: var(--error);
     border-radius: var(--radius);
@@ -130,77 +216,81 @@
     font-family: var(--mono);
   }
 
+  /* ---- Output ---- */
   #output {
-    max-width: 900px;
+    max-width: 920px;
     margin: 0 auto;
-    padding: 16px;
+    padding: 20px 16px 40px;
   }
   #output.empty { display: none; }
 
-  .event {
-    margin-bottom: 10px;
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
+  .event { margin-bottom: 12px; border-radius: var(--radius); overflow: hidden; }
 
   .event-head {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
+    display: flex; gap: 8px; align-items: baseline;
     padding: 4px 0;
+    font-family: var(--sans);
     font-size: 11px;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     font-weight: 600;
   }
   .event-head .label { color: var(--text); }
   .event-head .ts { font-family: var(--mono); font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
-  .event-head .tag { font-family: var(--mono); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-faint); padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; }
+  .event-head .tag {
+    font-family: var(--mono); font-weight: 400; text-transform: none;
+    letter-spacing: 0; color: var(--text-muted);
+    padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--panel);
+  }
 
   .bubble {
-    padding: 10px 14px;
+    padding: 12px 16px;
     border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
     border-radius: var(--radius);
     background: var(--panel);
   }
-  .bubble.user { border-color: var(--user); background: var(--user-bg); }
-  .bubble.user .event-head .label { color: var(--user); }
-  .bubble.assistant { background: var(--assistant-bg); }
-  .bubble.tool { background: var(--tool-bg); border-color: rgba(180, 83, 9, 0.25); }
-  .bubble.tool .event-head .label { color: var(--tool); }
-  .bubble.thinking { background: var(--thinking-bg); border-color: rgba(122, 92, 214, 0.2); }
-  .bubble.thinking .event-head .label { color: var(--thinking); }
+  .bubble.user { border-left-color: var(--blue); background: var(--user-bg); }
+  .bubble.user .event-head .label { color: var(--blue); }
+  .bubble.assistant { border-left-color: var(--dark); background: var(--panel); }
+  .bubble.tool { border-left-color: var(--orange); background: var(--tool-bg); border-color: rgba(217, 119, 87, 0.25); }
+  .bubble.tool .event-head .label { color: var(--orange); }
+  .bubble.thinking { border-left-color: var(--green); background: var(--thinking-bg); border-color: rgba(120, 140, 93, 0.25); }
+  .bubble.thinking .event-head .label { color: var(--green); }
   .bubble.system-note {
     color: var(--text-muted);
     font-size: 12px;
-    padding: 4px 10px;
-    border: none;
+    font-family: var(--sans);
+    padding: 6px 10px;
+    border: none; border-left: none;
     background: transparent;
     text-align: center;
     border-top: 1px dashed var(--border);
     border-bottom: 1px dashed var(--border);
     border-radius: 0;
-    margin: 6px 0;
+    margin: 10px 0;
+    letter-spacing: 0.02em;
   }
-  .bubble.error { background: var(--error-bg); border-color: rgba(185, 28, 28, 0.25); }
+  .bubble.error { background: var(--error-bg); border-left-color: var(--error); }
+  .bubble.system-meta { border-left-color: var(--mid-gray); }
 
   .body {
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: anywhere;
-    font-family: var(--sans);
+    font-family: var(--serif);
   }
   .body.mono { font-family: var(--mono); font-size: 12.5px; }
-
   .body p { margin: 0 0 0.7em 0; }
   .body p:last-child { margin-bottom: 0; }
 
   code.inline {
     font-family: var(--mono);
     background: var(--code-bg);
-    padding: 1px 5px;
-    border-radius: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
     font-size: 0.9em;
   }
 
@@ -214,12 +304,13 @@
     overflow-x: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
-  details { margin-top: 6px; }
+  details { margin-top: 8px; }
   details summary {
     cursor: pointer;
+    font-family: var(--sans);
     font-size: 12px;
     color: var(--text-muted);
     padding: 3px 0;
@@ -229,22 +320,22 @@
   details[open] summary { margin-bottom: 4px; }
 
   .tool-cmd {
-    margin-top: 6px;
+    margin-top: 8px;
     font-family: var(--mono);
     font-size: 12.5px;
-    padding: 8px 10px;
+    padding: 8px 12px;
     background: var(--code-bg);
     border-radius: var(--radius);
     white-space: pre-wrap;
     word-wrap: break-word;
   }
-  .tool-cmd .prompt { color: var(--text-muted); user-select: none; }
+  .tool-cmd .prompt { color: var(--orange); user-select: none; font-weight: 600; }
 
   .tool-result {
-    margin-top: 6px;
+    margin-top: 8px;
     font-family: var(--mono);
     font-size: 12px;
-    padding: 8px 10px;
+    padding: 8px 12px;
     background: var(--code-bg);
     border-radius: var(--radius);
     white-space: pre-wrap;
@@ -255,48 +346,62 @@
   .tool-result.is-error { color: var(--error); }
   .tool-meta { font-size: 11px; color: var(--text-faint); margin-top: 4px; font-family: var(--mono); }
 
-  .divider {
-    margin: 20px 0;
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--code-bg);
-    border-radius: var(--radius);
-    font-family: var(--mono);
-  }
-
-  .file-ref {
-    padding: 6px 10px;
-    background: var(--code-bg);
-    border-radius: var(--radius);
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
   .muted { color: var(--text-muted); }
+  .stats { color: var(--text-faint); font-size: 12px; padding: 4px 10px; font-family: var(--mono); }
 
-  .stats {
-    color: var(--text-faint);
-    font-size: 12px;
-    padding: 4px 10px;
-    font-family: var(--mono);
+  .controls-inline { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--text-muted); font-family: var(--sans); }
+  .controls-inline label { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+
+  /* ---- About ---- */
+  #about-section { padding: 40px 20px 60px; max-width: 760px; margin: 0 auto; }
+  #about-section.hidden { display: none; }
+  #about-section h2 { font-size: 30px; margin: 0 0 8px 0; }
+  #about-section .lede { font-family: var(--serif); color: var(--text-muted); font-size: 16px; margin: 0 0 24px 0; }
+  #about-section h3 { font-size: 17px; margin: 22px 0 6px 0; }
+  #about-section p, #about-section li { font-family: var(--serif); }
+  #about-section ul { padding-left: 20px; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 20px 0; }
+  .pill {
+    font-family: var(--sans); font-size: 12px; font-weight: 500;
+    padding: 4px 10px; border-radius: 999px; color: #fff;
   }
+  .pill.user { background: var(--blue); }
+  .pill.tool { background: var(--orange); }
+  .pill.thinking { background: var(--green); }
+  .pill.system { background: var(--mid-gray); color: var(--dark); }
 
-  .controls-inline {
+  /* ---- Footer ---- */
+  footer.site {
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    padding: 16px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text-muted);
     display: flex;
     gap: 12px;
     align-items: center;
-    font-size: 12px;
-    color: var(--text-muted);
+    flex-wrap: wrap;
   }
-  .controls-inline label { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+  footer.site .spacer { flex: 1; }
+  footer.site .accents {
+    display: inline-flex; gap: 4px; vertical-align: middle; margin: 0 6px 0 2px;
+  }
+  footer.site .accents span {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  footer.site .accents .a1 { background: var(--orange); }
+  footer.site .accents .a2 { background: var(--blue); }
+  footer.site .accents .a3 { background: var(--green); }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Session Viewer</h1>
+<header class="site">
+  <div class="brand">
+    Session Viewer
+    <span class="dot" aria-hidden="true"></span>
+  </div>
   <span id="format-tag" class="meta"></span>
   <span id="count-tag" class="meta"></span>
   <div class="spacer"></div>
@@ -305,27 +410,87 @@
     <label><input type="checkbox" id="show-system" checked> system</label>
     <label><input type="checkbox" id="show-meta"> meta</label>
   </div>
+  <nav>
+    <a class="navlink" id="nav-viewer" href="#viewer">Viewer</a>
+    <a class="navlink" id="nav-about" href="#about">About</a>
+  </nav>
   <button id="new-btn" style="display:none;">New</button>
 </header>
 
+<main>
 <section id="input-section">
-  <p class="input-hint">
-    Paste JSONL from a <strong>Codex</strong> or <strong>Claude Code</strong> session,
-    or load a <code class="inline">.jsonl</code> file.
+  <h2>Read your agent transcripts, like a conversation.</h2>
+  <p class="lede">
+    Paste or upload a JSONL session from <strong>Codex</strong> or <strong>Claude Code</strong>.
+    Everything runs in your browser &mdash; nothing leaves the page.
   </p>
-  <textarea id="input" placeholder='{"timestamp":"...","type":"session_meta",...}&#10;{"timestamp":"...","type":"response_item",...}'></textarea>
-  <div class="input-actions" style="margin-top: 12px;">
-    <button id="render-btn">Render</button>
-    <label class="btn" for="file-input">Load file…</label>
-    <input type="file" id="file-input" accept=".jsonl,.json,.txt">
-    <button id="example-btn">Paste example</button>
-    <span class="spacer" style="flex:1;"></span>
-    <span id="error-area" class="muted"></span>
+
+  <div class="dropzone" id="dropzone">
+    <textarea id="input" spellcheck="false" placeholder='Paste JSONL here, drop a file on this box, or click "Upload file…"'></textarea>
+  </div>
+
+  <div class="input-actions">
+    <button id="render-btn" class="primary">Render</button>
+    <label class="btn" for="file-input">Upload file…</label>
+    <input type="file" id="file-input" accept=".jsonl,.json,.txt,.log">
+    <button id="example-btn">Load example</button>
+    <button id="clear-btn">Clear</button>
+    <span class="spacer"></span>
+  </div>
+  <div class="hint-row">
+    Tip: drop a <code class="inline">.jsonl</code> file anywhere on this page, or press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to render.
   </div>
   <div id="input-error" class="input-error" style="display:none;"></div>
 </section>
 
 <section id="output" class="empty"></section>
+
+<section id="about-section" class="hidden">
+  <h2>About</h2>
+  <p class="lede">
+    A lightweight, client-side viewer for coding-agent session logs.
+    Point it at a Codex <code class="inline">session.jsonl</code> or a Claude Code
+    <code class="inline">projects/*.jsonl</code> transcript and it renders the run
+    as a readable conversation.
+  </p>
+
+  <h3>What gets rendered</h3>
+  <div class="pill-row">
+    <span class="pill user">user</span>
+    <span class="pill">assistant</span>
+    <span class="pill tool">tool / shell</span>
+    <span class="pill thinking">thinking</span>
+    <span class="pill system">system</span>
+  </div>
+  <ul>
+    <li>Auto-detects the Codex vs. Claude Code JSONL layout.</li>
+    <li>Pairs tool invocations with their outputs (shell commands, file edits, sub-agents).</li>
+    <li>Collapses long outputs behind a disclosure so the timeline stays scannable.</li>
+    <li>Header toggles to hide thinking, system prompts, or low-signal meta events.</li>
+  </ul>
+
+  <h3>Privacy</h3>
+  <p>
+    The transcript never leaves your browser. There's no server, no analytics,
+    no network call beyond loading the fonts at first visit. You can save this
+    page and use it offline.
+  </p>
+
+  <h3>How to use it</h3>
+  <ul>
+    <li>Paste JSONL into the textarea, or drag a <code class="inline">.jsonl</code> file onto the page.</li>
+    <li>Press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd>, or click <strong>Render</strong>.</li>
+    <li>Use the filters in the header to dial the noise floor up or down.</li>
+  </ul>
+</section>
+</main>
+
+<footer class="site">
+  <span class="accents" aria-hidden="true"><span class="a1"></span><span class="a2"></span><span class="a3"></span></span>
+  <span>Built by <a href="https://shekkizh.com" target="_blank" rel="noopener">shekkizh.com</a></span>
+  <span class="spacer"></span>
+  <span>Runs entirely in your browser.</span>
+</footer>
 
 <script>
 (() => {
@@ -1066,6 +1231,8 @@
     output.appendChild(frag);
     output.classList.remove("empty");
     inputSection.classList.add("hidden");
+    const aboutEl = document.getElementById("about-section");
+    if (aboutEl) aboutEl.classList.add("hidden");
     newBtn.style.display = "";
     filtersEl.style.display = "";
     formatTag.textContent = lastFormat;
@@ -1080,27 +1247,87 @@
 
   function reset() {
     inputSection.classList.remove("hidden");
+    const aboutEl = document.getElementById("about-section");
+    if (aboutEl) aboutEl.classList.add("hidden");
     output.classList.add("empty");
     output.innerHTML = "";
     newBtn.style.display = "none";
     filtersEl.style.display = "none";
     formatTag.textContent = "";
     countTag.textContent = "";
+    if (location.hash === "#about") history.replaceState(null, "", "#viewer");
     input.focus();
   }
 
   // ---- events ----
 
+  const aboutSection = $("#about-section");
+  const dropzone = $("#dropzone");
+  const clearBtn = $("#clear-btn");
+
+  function showAbout() {
+    aboutSection.classList.remove("hidden");
+    inputSection.classList.add("hidden");
+    output.classList.add("empty");
+    newBtn.style.display = "none";
+    filtersEl.style.display = "none";
+    window.scrollTo(0, 0);
+  }
+
+  function showViewer() {
+    aboutSection.classList.add("hidden");
+    if (lastEvents) {
+      actuallyRender();
+    } else {
+      inputSection.classList.remove("hidden");
+      output.classList.add("empty");
+      newBtn.style.display = "none";
+    }
+  }
+
+  function routeFromHash() {
+    if (location.hash === "#about") showAbout();
+    else showViewer();
+  }
+  window.addEventListener("hashchange", routeFromHash);
+  // Initial route
+  routeFromHash();
+
+  $("#nav-about").addEventListener("click", (e) => {
+    e.preventDefault();
+    history.pushState(null, "", "#about");
+    showAbout();
+  });
+  $("#nav-viewer").addEventListener("click", (e) => {
+    e.preventDefault();
+    history.pushState(null, "", "#viewer");
+    showViewer();
+  });
+
   $("#render-btn").addEventListener("click", render);
-  newBtn.addEventListener("click", reset);
+  newBtn.addEventListener("click", () => { lastEvents = null; lastFormat = null; reset(); });
+
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    inputError.style.display = "none";
+    input.focus();
+  });
+
+  async function loadFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      input.value = text;
+      render();
+    } catch (err) {
+      showError(`Could not read file: ${err.message}`);
+    }
+  }
 
   $("#file-input").addEventListener("change", async (ev) => {
     const f = ev.target.files && ev.target.files[0];
-    if (!f) return;
-    const text = await f.text();
-    input.value = text;
-    render();
     ev.target.value = "";
+    await loadFile(f);
   });
 
   $("#example-btn").addEventListener("click", () => {
@@ -1118,15 +1345,37 @@
     });
   }
 
-  // Drag-drop
-  document.addEventListener("dragover", (e) => { if (!inputSection.classList.contains("hidden")) e.preventDefault(); });
-  document.addEventListener("drop", async (e) => {
-    if (inputSection.classList.contains("hidden")) return;
+  // Drag-drop: highlight dropzone while dragging over anywhere on the page,
+  // accept file drops either on the dropzone or the page when input is visible.
+  let dragDepth = 0;
+  function dropzoneActive() {
+    return !inputSection.classList.contains("hidden");
+  }
+  window.addEventListener("dragenter", (e) => {
+    if (!dropzoneActive()) return;
+    if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+    dragDepth++;
+    dropzone.classList.add("dragover");
+  });
+  window.addEventListener("dragleave", () => {
+    if (!dropzoneActive()) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropzone.classList.remove("dragover");
+  });
+  window.addEventListener("dragover", (e) => {
+    if (!dropzoneActive()) return;
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) {
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("drop", async (e) => {
+    if (!dropzoneActive()) return;
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (!f) return;
     e.preventDefault();
-    input.value = await f.text();
-    render();
+    dragDepth = 0;
+    dropzone.classList.remove("dragover");
+    await loadFile(f);
   });
 
   // Cmd/Ctrl+Enter to render
