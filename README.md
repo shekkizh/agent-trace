@@ -1,7 +1,6 @@
 # Agent Trace
 
-A lightweight, client-side viewer for coding-agent session transcripts. Paste or drop a JSONL file from  one of your coding agent sessions, e.g., [Codex](https://github.com/openai/codex) or [Claude Code](https://claude.com/claude-code) and read the run as a conversation.                  
-  **Live:** https://shekkizh.github.io/jsonl-viewer/ *(or wherever you host it)*                                                                                                                                               
+A lightweight, client-side viewer for coding-agent session transcripts. Paste or drop a JSONL file from  one of your coding agent sessions, e.g., [Codex](https://github.com/openai/codex) or [Claude Code](https://claude.com/claude-code) and read the run as a conversation.                                                                                                                                                               
 
 ## Features              
 - **Auto-detects** the Codex (`type: session_meta` / `response_item`) vs. Claude Code (`uuid` + `sessionId`) JSONL layout.                                                                                                                        
